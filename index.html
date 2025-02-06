@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Trivia Game</title>
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode/minified/html5-qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+        #qr-reader {
+            width: 300px;
+            margin: 20px auto;
+            display: none;
+        }
+        .option {
+            display: block;
+            padding: 10px;
+            margin: 5px;
+            background: white;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
+        .option.selected {
+            background: blue;
+            color: white;
+        }
+        button {
+            padding: 10px;
+            margin-top: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: gray;
+        }
+        #celebration {
+            display: none;
+            font-size: 24px;
+            color: green;
+            margin-top: 20px;
+        }
+        #feedback {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        #try-again-btn, #congratulations-btn {
+            display: none;
+            margin-top: 20px;
+        }
+        #video-container {
+            display: none;
+            margin-top: 20px;
+        }
+        video {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>QR Code Trivia Game</h1>
+    <p>Scan a QR code to start the game!</p>
+
+    <button id="start-btn">Start QR Scanner</button>
+    <button id="stop-btn" disabled>Stop QR Scanner</button>
+
+    <div id="qr-reader"></div>
+    <div id="error-message" style="color: red;"></div>
+
+    <div id="questions" style="display: none;"></div>
+    <div id="feedback"></div>
+    <div id="celebration">
+        🎉 Congratulations! You got all the answers right! 🎉
+    </div>
+    <div id="try-again-btn">
+        <button onclick="resetGame()">Try Again</button>
+    </div>
+    <div id="congratulations-btn">
+        <button onclick="congratulate()">Congratulations</button>
+    </div>
+
+    <div id="video-container">
+        <video id="end-video" controls>
+            <source src="your-video-file.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+    <script>
+        let qrScanner;
+        let questions = [];
+        let currentQuestionIndex = 0;
+        let correctAnswers = 0;
+        let totalQuestions = 0;
+        let selectedOption = null;
+        let scanCount = 0;
+        let scannedCodes = [];  // To keep track of scanned QR codes
+
+        const triviaData = {
+            "QUESTION1": [
+                { question: "What is my name?", options: ["Barrack Obama", "Raphael Levi", "Neel Shenvi", "Mr. Beast"], answer: "Raphael Levi" }
+            ],
+            "QUESTION2": [
+                { question: "What is my DOB?", options: ["1/5/12", "16/2/13", "2/3/12", "15/2/12"], answer: "15/2/12" }
+            ],
+            "QUESTION3": [
+                { question: "What is the capital of France?", options: ["Berlin", "Madrid", "Paris", "Rome"], answer: "Paris" }
+            ],
+            "QUESTION4": [
+                { question: "What is 2 + 2?", options: ["3", "4", "5", "6"], answer: "4" }
+            ],
+            "QUESTION5": [
+                { question: "Which is the largest planet?", options: ["Earth", "Mars", "Jupiter", "Venus"], answer: "Jupiter" }
+            ],
+            "QUESTION6": [
+                { question: "What is the boiling point of water?", options: ["90°C", "100°C", "110°C", "120°C"], answer: "100°C" }
+            ],
+            "QUESTION7": [
+                { question: "Which country is known as the Land of the Rising Sun?", options: ["China", "Japan", "India", "South Korea"], answer: "Japan" }
+            ],
+            "QUESTION8": [
+                { question: "What is the largest ocean?", options: ["Atlantic", "Indian", "Arctic", "Pacific"], answer: "Pacific" }
+            ],
+            "QUESTION9": [
+                { question: "Who invented the telephone?", options: ["Nikola Tesla", "Thomas Edison", "Alexander Graham Bell", "Michael Faraday"], answer: "Alexander Graham Bell" }
+            ],
+            "QUESTION10": [
+                { question: "What is the fastest land animal?", options: ["Cheetah", "Lion", "Elephant", "Horse"], answer: "Cheetah" }
+            ]
+        };
+
+        document.getElementById("start-btn").addEventListener("click", function () {
+            const readerDiv = document.getElementById("qr-reader");
+            const errorDiv = document.getElementById("error-message");
+
+            if (typeof Html5Qrcode === "undefined") {
+                errorDiv.innerText = "❌ Error: QR Scanner library failed to load!";
+                return;
+            }
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                errorDiv.innerText = "⚠️ Error: Camera access is not supported in this browser.";
+                return;
+            }
+
+            readerDiv.style.display = "block";
+            this.disabled = true;
+            document.getElementById("stop-btn").disabled = false;
+
+            qrScanner = new Html5Qrcode("qr-reader");
+
+            qrScanner.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: 250 },
+                (decodedText) => {
+                    if (triviaData[decodedText] && !scannedCodes.includes(decodedText)) {
+                        scannedCodes.push(decodedText); // Mark the QR code as scanned
+                        startTrivia(decodedText);
+                    } else if (scannedCodes.includes(decodedText)) {
+                        alert("This QR code has already been scanned. Please scan a different one.");
+                    } else {
+                        document.getElementById("error-message").innerText = "⚠️ No trivia found for this QR code.";
+                    }
+                },
+                (error) => console.warn("Scan Error:", error)
+            ).catch(err => {
+                errorDiv.innerText = "❌ Scanner failed: " + err;
+            });
+        });
+
+        document.getElementById("stop-btn").addEventListener("click", function () {
+            if (qrScanner) {
+                qrScanner.stop();
+                document.getElementById("qr-reader").style.display = "none";
+                document.getElementById("start-btn").disabled = false;
+                this.disabled = true;
+            }
+        });
+
+        function startTrivia(code) {
+            questions = triviaData[code];
+            totalQuestions = questions.length;
+            currentQuestionIndex = 0;
+            correctAnswers = 0; // Reset correct answers count
+            selectedOption = null;
+            document.getElementById("feedback").innerText = "";
+            document.getElementById("celebration").style.display = "none";
+            document.getElementById("questions").style.display = "block";
+            showQuestion();
+        }
+
+        function showQuestion() {
+            const questionContainer = document.getElementById("questions");
+            questionContainer.innerHTML = "";
+
+            if (currentQuestionIndex >= totalQuestions) {
+                checkGameCompletion();
+                return;
+            }
+
+            const q = questions[currentQuestionIndex];
+            const questionElement = document.createElement("h2");
+            questionElement.innerText = q.question;
+            questionContainer.appendChild(questionElement);
+
+            q.options.forEach(option => {
+                const optionElement = document.createElement("div");
+                optionElement.innerText = option;
+                optionElement.classList.add("option");
+                optionElement.onclick = () => selectOption(optionElement, option);
+                questionContainer.appendChild(optionElement);
+            });
+
+            const submitButton = document.createElement("button");
+            submitButton.innerText = "Submit Answer";
+            submitButton.disabled = true;
+            submitButton.onclick = submitAnswer;
+            submitButton.id = "submit-btn";
+            questionContainer.appendChild(submitButton);
+        }
+
+        function selectOption(optionElement, option) {
+            selectedOption = option;
+            document.querySelectorAll(".option").forEach(el => el.classList.remove("selected"));
+            optionElement.classList.add("selected");
+            document.getElementById("submit-btn").disabled = false;
+        }
+
+        function submitAnswer() {
+            const currentQuestion = questions[currentQuestionIndex];
+            const feedback = document.getElementById("feedback");
+
+            // Hide questions after submission
+            document.getElementById("questions").style.display = "none";
+
+            if (selectedOption === currentQuestion.answer) {
+                correctAnswers++;
+                feedback.innerText = "Correct!";
+                feedback.style.color = "green";
+            } else {
+                feedback.innerText = `Wrong! The correct answer was: ${currentQuestion.answer}`;
+                feedback.style.color = "red";
+            }
+
+            currentQuestionIndex++;
+            scanCount++;
+
+            setTimeout(() => {
+                feedback.innerText = "";
+                if (currentQuestionIndex < totalQuestions) {
+                    // Show next question
+                    document.getElementById("questions").style.display = "block";
+                    showQuestion();
+                } else {
+                    checkGameCompletion();
+                }
+            }, 1500);
+        }
+
+        function checkGameCompletion() {
+            if (scanCount >= 10) {
+                // Provide feedback based on correct answers
+                document.getElementById("questions").style.display = "none";
+                const feedbackText = `You got ${correctAnswers} out of ${scanCount} correct.`;
+                document.getElementById("feedback").innerText = feedbackText;
+
+                if (correctAnswers === scanCount) {
+                    document.getElementById("celebration").style.display = "block";
+                    document.getElementById("congratulations-btn").style.display = "block";
+                } else {
+                    document.getElementById("try-again-btn").style.display = "block";
+                }
+
+                // Play the video
+                document.getElementById("video-container").style.display = "block";
+                const videoElement = document.getElementById("end-video");
+                videoElement.play();
+            }
+        }
+
+        function resetGame() {
+            correctAnswers = 0;
+            scanCount = 0;
+            scannedCodes = []; // Reset the scanned QR codes
+            document.getElementById("feedback").innerText = "";
+            document.getElementById("try-again-btn").style.display = "none";
+            document.getElementById("start-btn").disabled = false;
+            document.getElementById("celebration").style.display = "none";
+            document.getElementById("video-container").style.display = "none";
+        }
+
+        function congratulate() {
+            alert("Congratulations!");
+            resetGame();
+        }
+    </script>
+</body>
+</html>
