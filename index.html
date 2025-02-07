@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QR Code Trivia Game</title>
-    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode/minified/html5-qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -46,27 +46,15 @@
             color: green;
             margin-top: 20px;
         }
-        #feedback {
-            margin-top: 20px;
-            font-size: 18px;
-        }
-        #try-again-btn, #congratulations-btn {
+        #video {
             display: none;
             margin-top: 20px;
-        }
-        #video-container {
-            display: none;
-            margin-top: 20px;
-        }
-        video {
-            max-width: 100%;
-            height: auto;
         }
     </style>
 </head>
 <body>
 
-    <h1>Me in the LC Trivia Game</h1>
+    <h1>QR Code Trivia Game</h1>
     <p>Scan a QR code to start the game!</p>
 
     <button id="start-btn">Start QR Scanner</button>
@@ -76,33 +64,25 @@
     <div id="error-message" style="color: red;"></div>
 
     <div id="questions" style="display: none;"></div>
-    <div id="feedback"></div>
+
     <div id="celebration">
         🎉 Congratulations! You got all the answers right! 🎉
     </div>
-    <div id="try-again-btn">
-        <button onclick="resetGame()">Try Again</button>
-    </div>
-    <div id="congratulations-btn">
-        <button onclick="congratulate()">Congratulations</button>
-    </div>
 
-    <div id="video-container">
-        <video id="end-video" controls>
-            <source src="Me In The LC.mp4" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-    </div>
+    <video id="video" width="400" controls>
+        <source src="Me In The LC.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
 
     <script>
         let qrScanner;
         let questions = [];
         let currentQuestionIndex = 0;
         let correctAnswers = 0;
-        let totalQuestions = 0;
         let selectedOption = null;
-        let scanCount = 0;
-        let scannedCodes = [];  // To keep track of scanned QR codes
+        let scannedCodes = [];
+        let totalScans = 0;
+        let totalCorrect = 0;
 
         const triviaData = {
             "QUESTION1": [
@@ -112,28 +92,7 @@
                 { question: "What is my DOB?", options: ["1/5/12", "16/2/13", "2/3/12", "15/2/12"], answer: "15/2/12" }
             ],
             "QUESTION3": [
-                { question: "What are my skills?", options: ["Coding", "Leadership", "Creativity", "Painting"], answer: "Coding" }
-            ],
-            "QUESTION4": [
-                { question: "What is my sister's name?", options: ["Emma", "Alma", "Olivia", "Mia"], answer: "Alma" }
-            ],
-            "QUESTION5": [
-                { question: "What are my favourite subjects?", options: ["English", "Health & Sport", "Maths & Digi Tech", "Science"], answer: "Maths & Digi Tech" }
-            ],
-            "QUESTION6": [
-                { question: "What are my goals for Year 7?", options: ["Become better at school", "Both", "Make friends"], answer: "Both" }
-            ],
-            "QUESTION7": [
-                { question: "Which building is NOT in mordialloc college?", options: ["The LC", "The EZ", "The IC", "The DC"], answer: "The IC" }
-            ],
-            "QUESTION8": [
-                { question: "What school did I go to?", options: ["Aspendale", "Kingswood", "Keysborough", "Chelsea Heights"], answer: "Kingswood" }
-            ],
-            "QUESTION9": [
-                { question: "Who are my friends", options: ["Everyone", "No-one"], answer: "Everyone" }
-            ],
-            "QUESTION10": [
-                { question: "What is my best Year 7 memories?", options: ["Cable Park", "Orientation Day", "Going home after a monday"], answer: "Cable Park" }
+                { question: "What is fniojfemy DoB?", options: ["1/5/12", "16/2/13", "2/3/12", "15/2/12"], answer: "15/2/12" }
             ]
         };
 
@@ -159,13 +118,17 @@
 
             qrScanner.start(
                 { facingMode: "environment" },
-                { fps: 10, qrbox: 250 },
+                { fps: 25, qrbox: 250 },
                 (decodedText) => {
-                    if (triviaData[decodedText] && !scannedCodes.includes(decodedText)) {
-                        scannedCodes.push(decodedText); // Mark the QR code as scanned
-                        startTrivia(decodedText);
-                    } else if (scannedCodes.includes(decodedText)) {
+                    if (scannedCodes.includes(decodedText)) {
                         alert("This QR code has already been scanned. Please scan a different one.");
+                        return;
+                    }
+
+                    if (triviaData[decodedText]) {
+                        scannedCodes.push(decodedText); 
+                        totalScans++;  
+                        startTrivia(decodedText);
                     } else {
                         document.getElementById("error-message").innerText = "⚠️ No trivia found for this QR code.";
                     }
@@ -187,13 +150,11 @@
 
         function startTrivia(code) {
             questions = triviaData[code];
-            totalQuestions = questions.length;
             currentQuestionIndex = 0;
-            correctAnswers = 0; // Reset correct answers count
+            correctAnswers = 0;
             selectedOption = null;
-            document.getElementById("feedback").innerText = "";
-            document.getElementById("celebration").style.display = "none";
             document.getElementById("questions").style.display = "block";
+            document.getElementById("celebration").style.display = "none";
             showQuestion();
         }
 
@@ -201,12 +162,13 @@
             const questionContainer = document.getElementById("questions");
             questionContainer.innerHTML = "";
 
-            if (currentQuestionIndex >= totalQuestions) {
-                checkGameCompletion();
+            if (currentQuestionIndex >= questions.length) {
+                document.getElementById("questions").style.display = "none";
                 return;
             }
 
             const q = questions[currentQuestionIndex];
+
             const questionElement = document.createElement("h2");
             questionElement.innerText = q.question;
             questionContainer.appendChild(questionElement);
@@ -235,71 +197,32 @@
         }
 
         function submitAnswer() {
-            const currentQuestion = questions[currentQuestionIndex];
-            const feedback = document.getElementById("feedback");
+            if (!selectedOption) return;
 
-            // Hide questions after submission
+            const correctAnswer = questions[currentQuestionIndex].answer;
+            if (selectedOption === correctAnswer) {
+                correctAnswers++;
+                totalCorrect++;
+                alert("Correct! 🎉");
+            } else {
+                alert("Wrong answer ❌");
+            }
+
             document.getElementById("questions").style.display = "none";
 
-            if (selectedOption === currentQuestion.answer) {
-                correctAnswers++;
-                feedback.innerText = "Correct!";
-                feedback.style.color = "green";
-            } else {
-                feedback.innerText = `Wrong! The correct answer was: ${currentQuestion.answer}`;
-                feedback.style.color = "red";
-            }
-
-            currentQuestionIndex++;
-            scanCount++;
-
-            setTimeout(() => {
-                feedback.innerText = "";
-                if (currentQuestionIndex < totalQuestions) {
-                    // Show next question
-                    document.getElementById("questions").style.display = "block";
-                    showQuestion();
-                } else {
-                    checkGameCompletion();
-                }
-            }, 1500);
-        }
-
-        function checkGameCompletion() {
-            if (scanCount >= 10) {
-                // Provide feedback based on correct answers
-                document.getElementById("questions").style.display = "none";
-                const feedbackText = `You got ${correctAnswers} out of ${scanCount} correct.`;
-                document.getElementById("feedback").innerText = feedbackText;
-
-                if (correctAnswers === scanCount) {
-                    document.getElementById("celebration").style.display = "block";
-                    document.getElementById("congratulations-btn").style.display = "block";
-                } else {
-                    document.getElementById("try-again-btn").style.display = "block";
-                }
-
-                // Play the video
-                document.getElementById("video-container").style.display = "block";
-                const videoElement = document.getElementById("end-video");
-                videoElement.play();
+            if (totalScans >= 10) {
+                showFinalResult();
             }
         }
 
-        function resetGame() {
-            correctAnswers = 0;
-            scanCount = 0;
-            scannedCodes = []; // Reset the scanned QR codes
-            document.getElementById("feedback").innerText = "";
-            document.getElementById("try-again-btn").style.display = "none";
-            document.getElementById("start-btn").disabled = false;
-            document.getElementById("celebration").style.display = "none";
-            document.getElementById("video-container").style.display = "none";
-        }
+        function showFinalResult() {
+            alert(`You got ${totalCorrect} out of 10 questions correct!`);
 
-        function congratulate() {
-            alert("Congratulations!");
-            resetGame();
+            if (totalCorrect === 10) {
+                document.getElementById("celebration").style.display = "block";
+                document.getElementById("video").style.display = "block";
+                document.getElementById("video").play();
+            }
         }
     </script>
 </body>
